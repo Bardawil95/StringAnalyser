@@ -1,0 +1,26 @@
+[project]
+name = "string-analysis-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "flask==3.0.3",
+    "gunicorn==22.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.2.2",
+    "ruff==0.5.7",
+    "mypy==2.1.0",
+]
+
+[tool.mypy]
+python_version = "3.12"
+# Source modules are type-checked. mypy skips the bodies of untyped functions
+# by default, so the test files (whose functions are intentionally untyped and
+# use dynamic pytest/mock patterns) are not type-checked, which is what we want.
+
+[tool.pytest.ini_options]
+# The package isn't pip-installed (we use --no-install-project), so add the
+# project root to the path that pytest sets up before importing test modules.
+pythonpath = ["."]
