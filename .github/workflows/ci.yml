@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Quality gate: builds the test-env stage, which runs ruff, ruff format
+  # --check, pyright, and pytest inside the image. Any failure fails the job.
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Run lint, format, type-check and tests
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: test-env
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Only runs if the quality gate passed. Builds the lean production image
+  # and smoke-tests that the container actually boots and serves /health.
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+    needs: quality-gate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build --target production -t string-analysis-api .
+      - name: Smoke test the running container
+        run: |
+          docker run -d --name sa-api -p 8000:8000 string-analysis-api
+          for i in $(seq 1 10); do
+            if curl -fs http://localhost:8000/health; then echo "health OK"; break; fi
+            sleep 2
+          done
+          curl -fs http://localhost:8000/health || (docker logs sa-api && exit 1)
+          docker rm -f sa-api
